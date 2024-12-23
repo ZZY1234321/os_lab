@@ -432,7 +432,7 @@ git format-patch --stdout 5d87bc88d72d..a181054e61cda75  > example.patch
 
 ### 在平台上提交
 
-我们搭建了一个网站来接收和运行git patch，目前的url为：<http://10.109.246.160:8765/login>
+我们搭建了一个网站来接收和运行git patch，目前的url为：<http://10.161.28.28:8765/login>
 
 登录后，将文件在提交界面上传即可。
 ![1](assets/submit.jpg)
