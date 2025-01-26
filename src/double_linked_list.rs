@@ -2,39 +2,51 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::ptr::NonNull;
 
 /// 双链表
 pub struct LinkedList<T> {
-    // TODO: YOUR CODE HERE
-    marker: PhantomData<T>, // 可以去掉
+    front: Link<T>,
+    back: Link<T>,
+    len: usize,
+    marker: PhantomData<T>,
 }
+
+type Link<T> = Option<NonNull<Node<T>>>;
 
 /// 链表节点
 struct Node<T> {
-    // TODO: YOUR CODE HERE
-    marker: PhantomData<T>, // 可以去掉
+    front: Link<T>,
+    back: Link<T>,
+    elem: T,
+    marker: PhantomData<T>,
 }
 
 /// 链表迭代器
 pub struct Iter<'a, T> {
-    // TODO: YOUR CODE HERE
+    front: Link<T>,
+    back: Link<T>,
+    len: usize,
     marker: PhantomData<&'a T>,
 }
 
 /// 链表可变迭代器
 pub struct IterMut<'a, T> {
-    // TODO: YOUR CODE HERE
+    front: Link<T>,
+    back: Link<T>,
+    len: usize,
     marker: PhantomData<&'a mut T>,
 }
 
 impl<T> LinkedList<T> {
     /// 创建一个空链表
     pub fn new() -> Self {
-        // Self {
-        //     // TODO: YOUR CODE HERE
-        //     marker: PhantomData,
-        // }
-        unimplemented!()
+        Self {
+            front: None,
+            back: None,
+            len: 0,
+            marker: PhantomData,
+        }
     }
 
     /// 将元素插入到链表头部
@@ -46,9 +58,23 @@ impl<T> LinkedList<T> {
     /// list.push_front(1);
     /// assert_eq!(list.front(), Some(&1));
     /// ```
-    pub fn push_front(&mut self, _elem: T) {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+    pub fn push_front(&mut self, elem: T) {
+        unsafe {
+            let new = NonNull::new_unchecked(Box::into_raw(Box::new(Node {
+                front: None,
+                back: None,
+                elem,
+                marker: PhantomData,
+            })));
+            if let Some(old) = self.front {
+                (*old.as_ptr()).front = Some(new);
+                (*new.as_ptr()).back = Some(old);
+            } else {
+                self.back = Some(new);
+            }
+            self.front = Some(new);
+            self.len += 1;
+        }
     }
 
     /// 将元素插入到链表尾部
@@ -60,9 +86,23 @@ impl<T> LinkedList<T> {
     /// list.push_back(1);
     /// assert_eq!(list.back(), Some(&1));
     /// ```
-    pub fn push_back(&mut self, _elem: T) {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+    pub fn push_back(&mut self, elem: T) {
+        unsafe {
+            let new = NonNull::new_unchecked(Box::into_raw(Box::new(Node {
+                back: None,
+                front: None,
+                elem,
+                marker: PhantomData,
+            })));
+            if let Some(old) = self.back {
+                (*old.as_ptr()).back = Some(new);
+                (*new.as_ptr()).front = Some(old);
+            } else {
+                self.front = Some(new);
+            }
+            self.back = Some(new);
+            self.len += 1;
+        }
     }
 
     /// 将第一个元素返回
@@ -75,8 +115,22 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.pop_front(), Some(1));
     /// ```
     pub fn pop_front(&mut self) -> Option<T> {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+        unsafe {
+            self.front.map(|node| {
+                let boxed_node = Box::from_raw(node.as_ptr());
+                let result = boxed_node.elem;
+
+                self.front = boxed_node.back;
+                if let Some(new) = self.front {
+                    (*new.as_ptr()).front = None;
+                } else {
+                    self.back = None;
+                }
+
+                self.len -= 1;
+                result
+            })
+        }
     }
 
     /// 将最后一个元素返回
@@ -89,8 +143,22 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.pop_back(), Some(1));
     /// ```
     pub fn pop_back(&mut self) -> Option<T> {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+        unsafe {
+            self.back.map(|node| {
+                let boxed_node = Box::from_raw(node.as_ptr());
+                let result = boxed_node.elem;
+
+                self.back = boxed_node.front;
+                if let Some(new) = self.back {
+                    (*new.as_ptr()).back = None;
+                } else {
+                    self.front = None;
+                }
+
+                self.len -= 1;
+                result
+            })
+        }
     }
 
     /// 返回链表第一个元素的引用  
@@ -104,14 +172,12 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.front(), Some(&1));
     /// ```
     pub fn front(&self) -> Option<&T> {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+        unsafe { self.front.map(|node| &(*node.as_ptr()).elem) }
     }
 
     /// 返回链表第一个元素的可变引用   
     pub fn front_mut(&mut self) -> Option<&mut T> {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+        unsafe { self.front.map(|node| &mut (*node.as_ptr()).elem) }
     }
 
     /// 返回链表最后一个元素的引用
@@ -125,14 +191,12 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.back(), Some(&1));
     /// ```
     pub fn back(&self) -> Option<&T> {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+        unsafe { self.back.map(|node| &(*node.as_ptr()).elem) }
     }
 
     /// 返回链表最后一个元素的可变引用
     pub fn back_mut(&mut self) -> Option<&mut T> {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+        unsafe { self.back.map(|node| &mut (*node.as_ptr()).elem) }
     }
 
     /// 返回链表长度
@@ -145,8 +209,7 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
-        // TODO: YOUR CODE HERE
-        unimplemented!()
+        self.len
     }
 
     /// 判断链表是否为空
@@ -173,20 +236,22 @@ impl<T> LinkedList<T> {
 
     /// 返回一个迭代器
     pub fn iter(&self) -> Iter<T> {
-        // Iter {
-        //     // TODO: YOUR CODE HERE
-        //     marker : PhantomData,
-        // }
-        unimplemented!();
+        Iter {
+            front: self.front,
+            back: self.back,
+            len: self.len,
+            marker: PhantomData,
+        }
     }
 
     /// 返回一个可变迭代器
     pub fn iter_mut(&mut self) -> IterMut<T> {
-        // IterMut {
-        //     // TODO: YOUR CODE HERE
-        //     marker: PhantomData,
-        // }
-        unimplemented!();
+        IterMut {
+            front: self.front,
+            back: self.back,
+            len: self.len,
+            marker: PhantomData,
+        }
     }
 
     /// 获取链表中指定位置的元素   
@@ -197,15 +262,31 @@ impl<T> LinkedList<T> {
     /// list.push_back(1);
     /// assert_eq!(list.get(0), &1);
     /// ```
-    pub fn get(&self, _at: usize) -> &T {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+    pub fn get(&self, at: usize) -> &T {
+        if at >= self.len {
+            panic!("Index out of bounds");
+        }
+        unsafe {
+            let mut current = self.front.unwrap();
+            for _ in 0..at {
+                current = (*current.as_ptr()).back.unwrap();
+            }
+            &(*current.as_ptr()).elem
+        }
     }
 
     /// 获取链表中指定位置的可变元素
-    pub fn get_mut(&mut self, _at: usize) -> &mut T {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+    pub fn get_mut(&mut self, at: usize) -> &mut T {
+        if at >= self.len {
+            panic!("Index out of bounds");
+        }
+        unsafe {
+            let mut current = self.front.unwrap();
+            for _ in 0..at {
+                current = (*current.as_ptr()).back.unwrap();
+            }
+            &mut (*current.as_ptr()).elem
+        }
     }
 
     /// 将元素插入到**下标为i**的位置    
@@ -222,9 +303,34 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.get(1), &2);
     /// assert_eq!(list.get(2), &3);
     /// ```
-    pub fn insert(&mut self, _at: usize, _data: T) {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+    pub fn insert(&mut self, at: usize, data: T) {
+        if at > self.len {
+            panic!("Index out of bounds");
+        }
+        if at == 0 {
+            return self.push_front(data);
+        }
+        if at == self.len {
+            return self.push_back(data);
+        }
+        unsafe {
+            let new = NonNull::new_unchecked(Box::into_raw(Box::new(Node {
+                front: None,
+                back: None,
+                elem: data,
+                marker: PhantomData,
+            })));
+            let mut current = self.front.unwrap();
+            for _ in 0..at {
+                current = (*current.as_ptr()).back.unwrap();
+            }
+            let prev = (*current.as_ptr()).front.unwrap();
+            (*prev.as_ptr()).back = Some(new);
+            (*new.as_ptr()).front = Some(prev);
+            (*new.as_ptr()).back = Some(current);
+            (*current.as_ptr()).front = Some(new);
+            self.len += 1;
+        }
     }
 
     /// 移除链表中下标为i的元素
@@ -235,9 +341,29 @@ impl<T> LinkedList<T> {
     /// use linked_list::double_linked_list::LinkedList;
     /// let mut list = LinkedList::from_iter(vec![1,2,3]);
     /// assert_eq!(list.remove(1), 2);
-    pub fn remove(&mut self, _at: usize) -> T {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+    pub fn remove(&mut self, at: usize) -> T {
+        if at >= self.len {
+            panic!("Index out of bounds");
+        }
+        if at == 0 {
+            return self.pop_front().unwrap();
+        }
+        if at == self.len - 1 {
+            return self.pop_back().unwrap();
+        }
+        unsafe {
+            let mut current = self.front.unwrap();
+            for _ in 0..at {
+                current = (*current.as_ptr()).back.unwrap();
+            }
+            let prev = (*current.as_ptr()).front.unwrap();
+            let next = (*current.as_ptr()).back.unwrap();
+            (*prev.as_ptr()).back = Some(next);
+            (*next.as_ptr()).front = Some(prev);
+            self.len -= 1;
+            let boxed_node = Box::from_raw(current.as_ptr());
+            boxed_node.elem
+        }
     }
 
     /// 将链表分割成两个链表，原链表为[0,at-1]，新链表为[at,len-1]。
@@ -251,9 +377,37 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.len(), 2);
     /// assert_eq!(list.pop_front(), Some(1));
     /// assert_eq!(list.pop_front(), Some(2));
-    pub fn split_off(&mut self, _at: usize) -> LinkedList<T> {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+    pub fn split_off(&mut self, at: usize) -> LinkedList<T> {
+        if at > self.len {
+            panic!("Index out of bounds");
+        }
+        if at == 0 {
+            let mut new_list = LinkedList::<T>::new();
+            std::mem::swap(self, &mut new_list);
+            return new_list;
+        }
+        if at == self.len {
+            return Self::new();
+        }
+        unsafe {
+            let mut current = self.front.unwrap();
+            for _ in 0..at {
+                current = (*current.as_ptr()).back.unwrap();
+            }
+            let prev = (*current.as_ptr()).front.unwrap();
+            (*prev.as_ptr()).back = None;
+            let new_front = current;
+            let new_back = self.back.unwrap();
+            let new_len = self.len - at;
+            self.back = Some(prev);
+            self.len = at;
+            LinkedList {
+                front: Some(new_front),
+                back: Some(new_back),
+                len: new_len,
+                marker: PhantomData,
+            }
+        }
     }
 
     /// 查找链表中第一个满足条件的元素
@@ -265,9 +419,20 @@ impl<T> LinkedList<T> {
     /// assert_eq!(list.find_mut(|x| x % 2 == 0), Some(&mut 2));
     /// assert_eq!(list.find_mut(|x| x % 4 == 0), None);
     /// ```
-    pub fn find_mut<P>(&mut self,predicate:P)->Option<&mut T> where P:Fn(&T) -> bool{
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+    pub fn find_mut<P>(&mut self, predicate: P) -> Option<&mut T>
+    where
+        P: Fn(&T) -> bool,
+    {
+        let mut current = self.front;
+        while let Some(node) = current {
+            unsafe {
+                if predicate(&(*node.as_ptr()).elem) {
+                    return Some(&mut (*node.as_ptr()).elem);
+                }
+                current = (*node.as_ptr()).back;
+            }
+        }
+        None
     }
 }
 
@@ -282,9 +447,13 @@ impl<T: PartialEq> LinkedList<T> {
     /// assert_eq!(list.contains(&1), true);
     /// assert_eq!(list.contains(&2), false);
     /// ```
-    pub fn contains(&mut self, _data: &T) -> bool {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+    pub fn contains(&mut self, data: &T) -> bool {
+        for elem in self.iter() {
+            if elem == data {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -311,42 +480,77 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
     // 返回下一个元素，当没有元素可返回时，返回None
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+        if self.len > 0 {
+            unsafe {
+                self.front.map(|node| {
+                    self.len -= 1;
+                    self.front = (*node.as_ptr()).back;
+                    &(*node.as_ptr()).elem
+                })
+            }
+        } else {
+            None
+        }
     }
 
     // 返回(self.len, Some(self.len))即可
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+        (self.len, Some(self.len))
     }
 }
+
 impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+        if self.len > 0 {
+            unsafe {
+                self.front.map(|node| {
+                    self.len -= 1;
+                    self.front = (*node.as_ptr()).back;
+                    &mut (*node.as_ptr()).elem
+                })
+            }
+        } else {
+            None
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+        (self.len, Some(self.len))
     }
 }
 
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     // 返回前一个元素
     fn next_back(&mut self) -> Option<Self::Item> {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+        if self.len > 0 {
+            unsafe {
+                self.back.map(|node| {
+                    self.len -= 1;
+                    self.back = (*node.as_ptr()).front;
+                    &(*node.as_ptr()).elem
+                })
+            }
+        } else {
+            None
+        }
     }
 }
 
 impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+        if self.len > 0 {
+            unsafe {
+                self.back.map(|node| {
+                    self.len -= 1;
+                    self.back = (*node.as_ptr()).front;
+                    &mut (*node.as_ptr()).elem
+                })
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -357,13 +561,59 @@ pub trait MergeSort {
 }
 
 impl<T: PartialOrd + Default> LinkedList<T> {
-    // 你可以在这里添加你需要的辅助函数
+    // 辅助函数：拆分链表
+    fn split(&mut self) -> (LinkedList<T>, LinkedList<T>) {
+        let mut left = LinkedList::new();
+        let mut right = LinkedList::new();
+        let mut is_left = true;
+
+        while let Some(elem) = self.pop_front() {
+            if is_left {
+                left.push_back(elem);
+            } else {
+                right.push_back(elem);
+            }
+            is_left = !is_left;
+        }
+
+        (left, right)
+    }
+
+    // 辅助函数：合并两个已排序的链表
+    fn merge(mut left: LinkedList<T>, mut right: LinkedList<T>) -> LinkedList<T> {
+        let mut result = LinkedList::new();
+
+        while let (Some(l), Some(r)) = (left.front(), right.front()) {
+            if l <= r {
+                result.push_back(left.pop_front().unwrap());
+            } else {
+                result.push_back(right.pop_front().unwrap());
+            }
+        }
+
+        while let Some(elem) = left.pop_front() {
+            result.push_back(elem);
+        }
+
+        while let Some(elem) = right.pop_front() {
+            result.push_back(elem);
+        }
+
+        result
+    }
 }
 
 impl<T: PartialOrd + Default> MergeSort for LinkedList<T> {
     fn merge_sort(&mut self) {
-        // TODO: YOUR CODE HERE
-        unimplemented!();
+        if self.len() <= 1 {
+            return;
+        }
+
+        let (mut left, mut right) = self.split();
+        left.merge_sort();
+        right.merge_sort();
+
+        *self = Self::merge(left, right);
     }
 }
 
@@ -389,6 +639,7 @@ impl<T: Clone> Clone for LinkedList<T> {
         new_list
     }
 }
+
 impl<T> Extend<T> for LinkedList<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for item in iter {
@@ -396,6 +647,7 @@ impl<T> Extend<T> for LinkedList<T> {
         }
     }
 }
+
 impl<T> FromIterator<T> for LinkedList<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut list = Self::new();

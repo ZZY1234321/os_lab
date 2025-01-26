@@ -1,5 +1,7 @@
-use crate::double_linked_list::{LinkedList, MergeSort};
+use crate::double_linked_list::LinkedList;
 use rand::{distributions::Uniform, Rng};
+use crate::double_linked_list::MergeSort;
+
 #[test]
 pub fn test_front() {
     // 测试 front,push_front,pop_front
@@ -78,8 +80,8 @@ pub fn test_iter_mut() {
     }
     let mut iter = list.iter_mut();
     for i in 0..1000 {
-        let mut j = i;
-        assert_eq!(iter.next(), Some(&mut j));
+        let elem = iter.next().expect("Expected an element");
+        assert_eq!(*elem, i);
     }
 }
 
@@ -112,6 +114,7 @@ pub fn test_rev_for_loop() {
         assert_eq!(i, *j);
     }
 }
+
 #[test]
 pub fn test_get() {
     // 测试get
@@ -120,7 +123,7 @@ pub fn test_get() {
         list.push_back(i);
     }
     for i in 0..1000 {
-        assert_eq!(list.get(i), &i);
+        assert_eq!(*list.get(i), i);
     }
 }
 
@@ -137,6 +140,7 @@ pub fn test_insert() {
         assert_eq!(i, *j);
     }
 }
+
 #[test]
 pub fn test_remove() {
     // 测试remove
@@ -175,7 +179,7 @@ pub fn test_find_mut() {
     // FIXME: 此处生成的range范围应该和下标范围不能有重叠
     // let range = Uniform::from(100..1000000);
     let range = Uniform::from(1000..1000000);
-    
+
     // FIXME: 生成没有重复的input
     // let input: Vec<i64> = rand::thread_rng().sample_iter(&range).take(1000).collect();
     let mut input_set: HashSet<i64> = HashSet::new();
@@ -184,13 +188,14 @@ pub fn test_find_mut() {
         input_set.insert(range.sample(&mut rng));
     }
     let input: Vec<i64> = input_set.into_iter().collect();
-    
 
     list.extend(input.iter().cloned());
-    
+
     for i in 0..1000 {
         let v = input[((i + rand_pos) % 1000) as usize];
-        list.find_mut(|x| *x == v).map(|x| *x = i as i64);
+        if let Some(x) = list.find_mut(|x| *x == v) {
+            *x = i as i64;
+        }
     }
 
     let mut ans = 1000 - rand_pos;
@@ -213,8 +218,8 @@ pub fn test_split() {
             list.push_back(i);
         }
         let list2 = list.split_off(500);
-        assert!(list2.len() == 500);
-        assert!(list.len() == 500);
+        assert_eq!(list2.len(), 500);
+        assert_eq!(list.len(), 500);
         for (i, j) in list.iter().enumerate() {
             assert_eq!(i, *j);
         }
@@ -296,9 +301,9 @@ pub fn test_merge_sort3() {
     let range = Uniform::from(0..1000000);
     for _ in 0..5 {
         let input: Vec<i64> = rand::thread_rng()
-            .sample_iter(&range)
-            .take(100000)
-            .collect();
+           .sample_iter(&range)
+           .take(100000)
+           .collect();
         let mut output = input.clone();
         output.sort();
         let mut list = LinkedList::new();
